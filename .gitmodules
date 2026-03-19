@@ -1,0 +1,3 @@
+[submodule "tensor-viz"]
+	path = tensor-viz
+	url = ../tensor-viz

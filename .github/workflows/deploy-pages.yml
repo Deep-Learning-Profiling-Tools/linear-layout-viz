@@ -33,7 +33,7 @@ jobs:
         uses: actions/configure-pages@v5
 
       - name: Install frontend dependencies
-        run: npm ci
+        run: npm install
         working-directory: tensor-viz
 
       - name: Build static viewer demo

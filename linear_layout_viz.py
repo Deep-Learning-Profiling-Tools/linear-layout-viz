@@ -24,6 +24,34 @@ DEFAULT_COLOR_RANGES = {
 }
 LINEAR_LAYOUT_AXES = ("thread", "warp", "register")
 LINEAR_LAYOUT_CHANNELS = ("H", "S", "L")
+OUTPUT_AXIS_NAMES = (
+    "x",
+    "y",
+    "z",
+    "w",
+    "v",
+    "u",
+    "t",
+    "s",
+    "r",
+    "q",
+    "p",
+    "o",
+    "n",
+    "m",
+    "l",
+    "k",
+    "j",
+    "i",
+    "h",
+    "g",
+    "f",
+    "e",
+    "d",
+    "c",
+    "b",
+    "a",
+)
 
 
 def _axis_by_name(names: list[str], needle: str, default: int | None) -> int | None:
@@ -129,13 +157,63 @@ def _logical_output_dims(output_dims: list[tuple[str, int]]) -> list[tuple[str, 
     return list(reversed(output_dims)) if names == ["x", "y"] else output_dims
 
 
-def _logical_axis_labels(output_names: list[str]) -> list[str]:
-    """Return viewer labels for logical output axes."""
+def _infer_output_dims(
+    input_dims: list[tuple[str, Any]],
+    output_names: list[str],
+) -> list[tuple[str, int]]:
+    """Infer output sizes from the basis vectors, matching the browser path."""
 
-    return ["Y", "X"] if len(output_names) == 2 else _viewer_axis_labels(output_names)
+    input_shape = tuple(1 << len(bases) for _dim_name, bases in input_dims)
+    maxima = [0] * len(output_names)
+    for input_coord in np.ndindex(input_shape):
+        output_coord = _map_linear_layout_coord(input_coord, input_dims, len(output_names))
+        for axis, value in enumerate(output_coord):
+            maxima[axis] = max(maxima[axis], value)
+    return [
+        (dim_name, dim_max + 1)
+        for dim_name, dim_max in zip(output_names, maxima, strict=True)
+    ]
 
 
-def _hardware_input_dims(input_dims: list[tuple[str, Any]]) -> tuple[list[tuple[str, int]], tuple[int, ...]]:
+def _default_output_names(input_dims: list[tuple[str, Any]]) -> list[str]:
+    """Return the browser-default output axis names for one basis rank."""
+
+    output_rank = max(
+        (len(basis) for _dim_name, bases in input_dims for basis in bases),
+        default=1,
+    )
+    if output_rank > len(OUTPUT_AXIS_NAMES):
+        raise ValueError(
+            f"Output rank {output_rank} exceeds supported axes {len(OUTPUT_AXIS_NAMES)}."
+        )
+    return list(reversed(OUTPUT_AXIS_NAMES[:output_rank]))
+
+
+def _map_linear_layout_coord(
+    input_coord: tuple[int, ...],
+    input_dims: list[tuple[str, Any]],
+    output_rank: int,
+) -> tuple[int, ...]:
+    """Map one input coordinate into output space using xor basis composition."""
+
+    output_coord = [0] * output_rank
+    for axis, (_dim_name, bases) in enumerate(input_dims):
+        value = input_coord[axis] if axis < len(input_coord) else 0
+        for bit, basis in enumerate(bases):
+            if ((value >> bit) & 1) == 0:
+                continue
+            if len(basis) != output_rank:
+                raise ValueError(
+                    f"Basis {axis}[{bit}] has rank {len(basis)}, expected {output_rank}."
+                )
+            for out_axis, component in enumerate(basis):
+                output_coord[out_axis] ^= component
+    return tuple(output_coord)
+
+
+def _hardware_input_dims(
+    input_dims: list[tuple[str, Any]],
+) -> tuple[list[tuple[str, int]], tuple[int, ...]]:
     """Return hardware dims reordered for contiguous 2D viewing."""
 
     dims = [(dim_name, 1 << len(bases)) for dim_name, bases in input_dims]
@@ -249,11 +327,40 @@ def create_layout_session_data(
     input_shape = tuple(1 << len(bases) for _dim_name, bases in input_dims)
     hardware_shape = tuple(size for _dim_name, size in hardware_dims)
     hardware_names = [dim_name for dim_name, _size in hardware_dims]
-    output_dims = _logical_output_dims(list(layout.out_dims))
+    raw_output_dims = _infer_output_dims(
+        input_dims,
+        _default_output_names(input_dims),
+    )
+    output_dims = _logical_output_dims(raw_output_dims)
     output_names = [dim_name for dim_name, _size in output_dims]
+    output_axis_by_name = {dim_name: axis for axis, (dim_name, _size) in enumerate(raw_output_dims)}
     output_shape = tuple(size for _dim_name, size in output_dims)
     channel_axes = _normalize_color_axes(input_names, input_shape, color_axes)
     linear_layout_state = _linear_layout_state(input_dims, color_axes, color_ranges)
+    linear_layout_spec = {
+        "name": name or "Layout",
+        "input_dims": [
+            {
+                "name": dim_name,
+                "bases": [list(basis) for basis in dim_bases],
+            }
+            for dim_name, dim_bases in input_dims
+        ],
+        "output_dims": [
+            {
+                "name": dim_name,
+                "size": int(dim_size),
+            }
+            for dim_name, dim_size in raw_output_dims
+        ],
+    }
+    if color_axes:
+        linear_layout_spec["color_axes"] = dict(color_axes)
+    if color_ranges:
+        linear_layout_spec["color_ranges"] = {
+            channel: [float(value[0]), float(value[1])]
+            for channel, value in color_ranges.items()
+        }
 
     hardware_tensor = np.zeros(hardware_shape, dtype=np.int32)
     hardware_rgb = np.zeros((*hardware_shape, 3), dtype=np.float32)
@@ -284,10 +391,17 @@ def create_layout_session_data(
         hardware_tensor[hardware_coord] = value
         hardware_rgb[hardware_coord] = _rgb_color(hue, saturation, lightness)
 
-        output_coord_map = layout.apply(dict(zip(input_names, input_coord, strict=True)))
-        output_coord = tuple(output_coord_map[dim_name] for dim_name in output_names)
-        logical_tensor[output_coord] = value
-        logical_rgb[output_coord] = hardware_rgb[hardware_coord]
+        output_coord = _map_linear_layout_coord(
+            input_coord,
+            input_dims,
+            len(raw_output_dims),
+        )
+        logical_coord = tuple(
+            output_coord[output_axis_by_name[dim_name]]
+            for dim_name in output_names
+        )
+        logical_tensor[logical_coord] = value
+        logical_rgb[logical_coord] = hardware_rgb[hardware_coord]
 
     session_data = create_session_data(
         {
@@ -297,16 +411,20 @@ def create_layout_session_data(
         name=name or "Layout",
         labels={
             "Hardware tensor": _viewer_axis_labels(hardware_names),
-            "Logical tensor": _logical_axis_labels(output_names),
         },
         color_instructions={
-            "tensor-1": [{"mode": "rgb", "kind": "dense", "values": _dense_rgb_values(hardware_rgb)}],
-            "tensor-2": [{"mode": "rgb", "kind": "dense", "values": _dense_rgb_values(logical_rgb)}],
+            "tensor-1": [
+                {"mode": "rgb", "kind": "dense", "values": _dense_rgb_values(hardware_rgb)}
+            ],
+            "tensor-2": [
+                {"mode": "rgb", "kind": "dense", "values": _dense_rgb_values(logical_rgb)}
+            ],
         },
     )
     manifest = json.loads(session_data.manifest_bytes)
     manifest["tabs"][0]["viewer"]["dimensionMappingScheme"] = "contiguous"
     manifest["tabs"][0]["viewer"]["linearLayoutState"] = linear_layout_state
+    manifest["tabs"][0]["viewer"]["linearLayoutSpec"] = linear_layout_spec
     return SessionData(
         manifest_bytes=json.dumps(manifest).encode("utf-8"),
         tensor_bytes=session_data.tensor_bytes,

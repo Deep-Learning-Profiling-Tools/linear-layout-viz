@@ -22,6 +22,8 @@ DEFAULT_COLOR_RANGES = {
     "S": (0.35, 0.95),
     "L": (0.25, 0.95),
 }
+LINEAR_LAYOUT_AXES = ("thread", "warp", "register")
+LINEAR_LAYOUT_CHANNELS = ("H", "S", "L")
 
 
 def _axis_by_name(names: list[str], needle: str, default: int | None) -> int | None:
@@ -40,10 +42,10 @@ def _dense_hs_values(colors: np.ndarray) -> list[float]:
     return colors.reshape(-1, 2).ravel().tolist()
 
 
-def _dense_rgba_values(colors: np.ndarray) -> list[float]:
-    """Flatten one dense RGBA tensor into viewer manifest order."""
+def _dense_rgb_values(colors: np.ndarray) -> list[float]:
+    """Flatten one dense RGB tensor into viewer manifest order."""
 
-    return colors.reshape(-1, 4).ravel().tolist()
+    return colors.reshape(-1, 3).ravel().tolist()
 
 
 def _viewer_axis_labels(names: list[str]) -> list[str]:
@@ -59,6 +61,67 @@ def _viewer_axis_labels(names: list[str]) -> list[str]:
     return labels
 
 
+def _linear_layout_axis_label(name: str) -> str | None:
+    """Return the sidebar axis label for one layout axis."""
+
+    lowered = name.lower()
+    if "thread" in lowered:
+        return "thread"
+    if "warp" in lowered:
+        return "warp"
+    if "reg" in lowered:
+        return "register"
+    return None
+
+
+def _linear_layout_state(
+    input_dims: list[tuple[str, Any]],
+    color_axes: LayoutColorAxes | None,
+    color_ranges: LayoutColorRanges | None,
+) -> dict[str, Any]:
+    """Return the sidebar state for the linear-layout editor."""
+
+    input_names = [dim_name for dim_name, _bases in input_dims]
+    bases = {axis: "[]" for axis in LINEAR_LAYOUT_AXES}
+    axis_labels: dict[str, str] = {}
+    for dim_name, dim_bases in input_dims:
+        axis_label = _linear_layout_axis_label(dim_name)
+        if axis_label is None:
+            continue
+        axis_labels[dim_name] = axis_label
+        bases[axis_label] = json.dumps(dim_bases or [], separators=(",", ":"))
+    present = set(axis_labels.values())
+    mapping: dict[str, str] = {
+        "H": "warp" if "warp" in present else "none",
+        "S": "thread" if "thread" in present else "none",
+        "L": "register" if "register" in present else "none",
+    }
+    if color_axes:
+        for axis_name, channel_name in color_axes.items():
+            channel = channel_name.upper()
+            if channel not in LINEAR_LAYOUT_CHANNELS:
+                continue
+            axis_index = _resolve_axis(input_names, axis_name)
+            axis_label = _linear_layout_axis_label(input_names[axis_index])
+            mapping[channel] = axis_label if axis_label in LINEAR_LAYOUT_AXES else "none"
+    ranges = DEFAULT_COLOR_RANGES if color_ranges is None else {
+        **DEFAULT_COLOR_RANGES,
+        **color_ranges,
+    }
+    range_state = {
+        channel: [
+            format(ranges[channel][0], "g"),
+            format(ranges[channel][1], "g"),
+        ]
+        for channel in LINEAR_LAYOUT_CHANNELS
+    }
+    return {
+        "bases": bases,
+        "mapping": mapping,
+        "ranges": range_state,
+    }
+
+
 def _logical_output_dims(output_dims: list[tuple[str, int]]) -> list[tuple[str, int]]:
     """Return logical output dims in viewer order."""
 
@@ -70,6 +133,16 @@ def _logical_axis_labels(output_names: list[str]) -> list[str]:
     """Return viewer labels for logical output axes."""
 
     return ["Y", "X"] if len(output_names) == 2 else _viewer_axis_labels(output_names)
+
+
+def _hardware_input_dims(input_dims: list[tuple[str, Any]]) -> tuple[list[tuple[str, int]], tuple[int, ...]]:
+    """Return hardware dims reordered for contiguous 2D viewing."""
+
+    dims = [(dim_name, 1 << len(bases)) for dim_name, bases in input_dims]
+    if len(dims) != 3:
+        return dims, tuple(range(len(dims)))
+    axis_order = (1, 0, 2)
+    return [dims[axis] for axis in axis_order], axis_order
 
 
 def _resolve_axis(names: list[str], axis_name: str) -> int:
@@ -146,8 +219,8 @@ def _color_value(
     return start + ((stop - start) * position)
 
 
-def _rgba_color(hue: float, saturation: float, lightness: float) -> tuple[float, float, float, float]:
-    """Convert the configured layout color channels into an RGBA tuple."""
+def _rgb_color(hue: float, saturation: float, lightness: float) -> tuple[float, float, float]:
+    """Convert the configured layout color channels into an RGB tuple."""
 
     red, green, blue = colorsys.hsv_to_rgb(
         hue % 1.0,
@@ -158,7 +231,6 @@ def _rgba_color(hue: float, saturation: float, lightness: float) -> tuple[float,
         red,
         green,
         blue,
-        1.0,
     )
 
 
@@ -173,25 +245,20 @@ def create_layout_session_data(
 
     input_dims = list(layout.bases)
     input_names = [dim_name for dim_name, _bases in input_dims]
+    hardware_dims, hardware_axis_order = _hardware_input_dims(input_dims)
     input_shape = tuple(1 << len(bases) for _dim_name, bases in input_dims)
+    hardware_shape = tuple(size for _dim_name, size in hardware_dims)
+    hardware_names = [dim_name for dim_name, _size in hardware_dims]
     output_dims = _logical_output_dims(list(layout.out_dims))
     output_names = [dim_name for dim_name, _size in output_dims]
     output_shape = tuple(size for _dim_name, size in output_dims)
     channel_axes = _normalize_color_axes(input_names, input_shape, color_axes)
+    linear_layout_state = _linear_layout_state(input_dims, color_axes, color_ranges)
 
-    hardware_tensor = np.zeros(
-        input_shape,
-        dtype=np.float32 if color_ranges and "L" in color_ranges else np.int32,
-    )
-    hardware_colors = np.zeros((*input_shape, 2), dtype=np.float32)
-    hardware_rgba = np.zeros((*input_shape, 4), dtype=np.float32)
-    logical_tensor = np.full(
-        output_shape,
-        -1,
-        dtype=np.float32 if color_ranges and "L" in color_ranges else np.int32,
-    )
-    logical_colors = np.zeros((*output_shape, 2), dtype=np.float32)
-    logical_rgba = np.zeros((*output_shape, 4), dtype=np.float32)
+    hardware_tensor = np.zeros(hardware_shape, dtype=np.int32)
+    hardware_rgb = np.zeros((*hardware_shape, 3), dtype=np.float32)
+    logical_tensor = np.full(output_shape, -1, dtype=np.int32)
+    logical_rgb = np.zeros((*output_shape, 3), dtype=np.float32)
 
     for input_coord in np.ndindex(input_shape):
         hue_axis = channel_axes["H"]
@@ -212,33 +279,37 @@ def create_layout_session_data(
             lightness_axis,
             color_ranges,
         )
-        hardware_tensor[input_coord] = lightness
-        hardware_colors[input_coord] = (hue, saturation)
-        # temporary hack: use direct rgba so lightness is absolute instead of
-        # being renormalized by tensor-viz's heatmap path. remove this once
-        # tensor-viz supports native custom color lightness.
-        hardware_rgba[input_coord] = _rgba_color(hue, saturation, lightness)
+        value = 0 if lightness_axis is None else input_coord[lightness_axis]
+        hardware_coord = tuple(input_coord[axis] for axis in hardware_axis_order)
+        hardware_tensor[hardware_coord] = value
+        hardware_rgb[hardware_coord] = _rgb_color(hue, saturation, lightness)
 
         output_coord_map = layout.apply(dict(zip(input_names, input_coord, strict=True)))
         output_coord = tuple(output_coord_map[dim_name] for dim_name in output_names)
-        logical_tensor[output_coord] = lightness
-        logical_colors[output_coord] = hardware_colors[input_coord]
-        logical_rgba[output_coord] = hardware_rgba[input_coord]
+        logical_tensor[output_coord] = value
+        logical_rgb[output_coord] = hardware_rgb[hardware_coord]
 
-    return create_session_data(
+    session_data = create_session_data(
         {
             "Hardware tensor": hardware_tensor,
             "Logical tensor": logical_tensor,
         },
         name=name or "Layout",
         labels={
-            "Hardware tensor": _viewer_axis_labels(input_names),
+            "Hardware tensor": _viewer_axis_labels(hardware_names),
             "Logical tensor": _logical_axis_labels(output_names),
         },
         color_instructions={
-            "tensor-1": [{"mode": "rgba", "kind": "dense", "values": _dense_rgba_values(hardware_rgba)}],
-            "tensor-2": [{"mode": "rgba", "kind": "dense", "values": _dense_rgba_values(logical_rgba)}],
+            "tensor-1": [{"mode": "rgb", "kind": "dense", "values": _dense_rgb_values(hardware_rgb)}],
+            "tensor-2": [{"mode": "rgb", "kind": "dense", "values": _dense_rgb_values(logical_rgb)}],
         },
+    )
+    manifest = json.loads(session_data.manifest_bytes)
+    manifest["tabs"][0]["viewer"]["dimensionMappingScheme"] = "contiguous"
+    manifest["tabs"][0]["viewer"]["linearLayoutState"] = linear_layout_state
+    return SessionData(
+        manifest_bytes=json.dumps(manifest).encode("utf-8"),
+        tensor_bytes=session_data.tensor_bytes,
     )
 
 
@@ -275,6 +346,7 @@ def create_layouts_session_data(
             tensor["id"] = remapped_ids[tensor["id"]]
         tab["id"] = tab_id
         tab["viewer"]["activeTensorId"] = remapped_ids[tab["viewer"]["activeTensorId"]]
+        tab["viewer"]["dimensionMappingScheme"] = "contiguous"
         manifest["tabs"].append(tab)
     return SessionData(
         manifest_bytes=json.dumps(manifest).encode("utf-8"),

@@ -404,12 +404,12 @@ def create_layout_session_data(
 
     session_data = create_session_data(
         {
-            "Hardware Layout": hardware_tensor,
-            "Logical Layout": logical_tensor,
+            "Hardware tensor": hardware_tensor,
+            "Logical tensor": logical_tensor,
         },
         name=name or "Layout",
         labels={
-            "Hardware Layout": _viewer_axis_labels(hardware_names),
+            "Hardware tensor": _viewer_axis_labels(hardware_names),
         },
         color_instructions={
             "tensor-1": [

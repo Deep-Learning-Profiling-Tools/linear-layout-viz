@@ -1,5 +1,4 @@
 from triton.tools import LinearLayout
-
 from linear_layout_viz import visualize_layouts
 
 COLOR_AXES = {"warp": "H", "thread": "S", "reg": "L"}

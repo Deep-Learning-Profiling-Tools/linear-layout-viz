@@ -2,10 +2,12 @@
 
 ![Cover](./assets/cover.png)
 
+_Linear layout in Figure 1a of the linear layout paper visualized with the visualizer._
+
 A visualizer for Triton linear layouts.
-- Website: https://deep-learning-profiling-tools.github.io/linear-layout-viz/
-  - There might be problems with sidebar spacing with Firefox (I use Librewolf so that's why I'm not sure if it's a Firefox or Librewolf problem). Should work fine on Chromium.
-- Paper: https://arxiv.org/pdf/2505.23819
+- [Website](https://deep-learning-profiling-tools.github.io/linear-layout-viz/)
+  - There might be problems with sidebar spacing with Firefox if your tab zoom is < 100% (I use Librewolf so that's why I'm not sure if it's a Firefox or Librewolf problem). Should work fine on Chromium.
+- Paper: [Linear Layouts: Robust Code Generation of Efficient Tensor Computation Using F_2](https://arxiv.org/pdf/2505.23819)
 
 See [MANUAL.md](./MANUAL.md) for the viewer interaction guide.
 See [docs/sample-svgs/](./docs/sample-svgs/README.md) for example exported SVGs.

@@ -1,5 +1,8 @@
 # Manual
 
+**NOTE:** This manual is better viewed within the visualizer - there's a button called "Manual" in the bottom-left corner that has video previews of all the actions.
+
+
 This viewer shows paired hardware and logical layouts and lets you inspect how cells map between them.
 
 ## Selection

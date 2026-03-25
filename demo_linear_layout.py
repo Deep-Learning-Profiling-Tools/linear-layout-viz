@@ -5,9 +5,8 @@ from linear_layout_viz import visualize_layouts
 COLOR_AXES = {"warp": "H", "thread": "S", "reg": "L"}
 COLOR_RANGES = {
     "H": (0.0, 0.8),
-    #"S": (0, 1),
     "S": (0, 0),
-    #"L": (1.0, 0.25),
+    #"S": (0.25, 1.0),
     "L": (0, 1.0),
 }
 
@@ -23,10 +22,6 @@ DEMOS = {
             ["x", "y"],
         ),
     ),
-    '''
-    T0T1T2T3T4 R0R1R2 -perm->
-    R1T0T1T2 R0T3T4R2
-    '''
     "mma": (
         "MMA A Layout (m16n8k16)",
         LinearLayout.from_bases(

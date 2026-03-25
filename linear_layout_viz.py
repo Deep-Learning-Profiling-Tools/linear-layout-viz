@@ -161,17 +161,16 @@ def _infer_output_dims(
     input_dims: list[tuple[str, Any]],
     output_names: list[str],
 ) -> list[tuple[str, int]]:
-    """Infer output sizes from the basis vectors, matching the browser path."""
+    """Infer power-of-two output sizes from the highest bit used on each axis."""
 
-    input_shape = tuple(1 << len(bases) for _dim_name, bases in input_dims)
-    maxima = [0] * len(output_names)
-    for input_coord in np.ndindex(input_shape):
-        output_coord = _map_linear_layout_coord(input_coord, input_dims, len(output_names))
-        for axis, value in enumerate(output_coord):
-            maxima[axis] = max(maxima[axis], value)
+    sizes = [1] * len(output_names)
+    for _dim_name, bases in input_dims:
+        for basis in bases:
+            for axis, value in enumerate(basis[: len(output_names)]):
+                sizes[axis] = max(sizes[axis], 1 if int(value) <= 0 else 1 << int(value).bit_length())
     return [
-        (dim_name, dim_max + 1)
-        for dim_name, dim_max in zip(output_names, maxima, strict=True)
+        (dim_name, dim_size)
+        for dim_name, dim_size in zip(output_names, sizes, strict=True)
     ]
 
 
@@ -405,12 +404,12 @@ def create_layout_session_data(
 
     session_data = create_session_data(
         {
-            "Hardware tensor": hardware_tensor,
-            "Logical tensor": logical_tensor,
+            "Hardware Layout": hardware_tensor,
+            "Logical Layout": logical_tensor,
         },
         name=name or "Layout",
         labels={
-            "Hardware tensor": _viewer_axis_labels(hardware_names),
+            "Hardware Layout": _viewer_axis_labels(hardware_names),
         },
         color_instructions={
             "tensor-1": [
@@ -422,6 +421,9 @@ def create_layout_session_data(
         },
     )
     manifest = json.loads(session_data.manifest_bytes)
+    logical_marker_coords = np.argwhere(logical_tensor < 0).tolist()
+    if logical_marker_coords:
+        manifest["tabs"][0]["tensors"][1]["markerCoords"] = logical_marker_coords
     manifest["tabs"][0]["viewer"]["dimensionMappingScheme"] = "contiguous"
     manifest["tabs"][0]["viewer"]["linearLayoutState"] = linear_layout_state
     manifest["tabs"][0]["viewer"]["linearLayoutSpec"] = linear_layout_spec

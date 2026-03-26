@@ -54,6 +54,15 @@ OUTPUT_AXIS_NAMES = (
 )
 
 
+def _compose_identifier(name: str) -> str:
+    """Return one compose-layout-safe identifier."""
+
+    cleaned = "".join(char if char.isalnum() or char == "_" else "_" for char in name).strip("_")
+    if not cleaned:
+        return "Layout_1"
+    return cleaned if (cleaned[0].isalpha() or cleaned[0] == "_") else f"Layout_{cleaned}"
+
+
 def _axis_by_name(names: list[str], needle: str, default: int | None) -> int | None:
     """Return the first axis whose name contains ``needle``."""
 
@@ -100,6 +109,60 @@ def _linear_layout_axis_label(name: str) -> str | None:
     if "reg" in lowered:
         return "register"
     return None
+
+
+def _compose_layout_state(
+    name: str,
+    input_name: str,
+    input_dims: list[tuple[str, Any]],
+    output_dims: list[tuple[str, int]],
+    color_axes: LayoutColorAxes | None,
+    color_ranges: LayoutColorRanges | None,
+) -> dict[str, Any]:
+    """Return the compose-layout sidebar state for one python-served tab."""
+
+    raw_input_names = [dim_name for dim_name, _bases in input_dims]
+    input_labels = _viewer_axis_labels(raw_input_names)
+    output_labels = _viewer_axis_labels([dim_name for dim_name, _size in output_dims])
+    mapping = {channel: "none" for channel in LINEAR_LAYOUT_CHANNELS}
+    for raw_name, label in zip(raw_input_names, input_labels, strict=True):
+        axis_label = _linear_layout_axis_label(raw_name)
+        if axis_label == "warp":
+            mapping["H"] = label
+        elif axis_label == "thread":
+            mapping["S"] = label
+        elif axis_label == "register":
+            mapping["L"] = label
+    if color_axes:
+        for axis_name, channel_name in color_axes.items():
+            channel = channel_name.upper()
+            if channel not in LINEAR_LAYOUT_CHANNELS:
+                continue
+            try:
+                mapping[channel] = input_labels[_resolve_axis(raw_input_names, axis_name)]
+            except ValueError:
+                continue
+    ranges = DEFAULT_COLOR_RANGES if color_ranges is None else {
+        **DEFAULT_COLOR_RANGES,
+        **color_ranges,
+    }
+    return {
+        "specsText": "\n".join([
+            f"{_compose_identifier(name)}: [{','.join(input_labels)}] -> [{','.join(output_labels)}]",
+            *[
+                json.dumps(dim_bases or [], separators=(",", ":"))
+                for _dim_name, dim_bases in input_dims
+            ],
+        ]),
+        "operationText": _compose_identifier(name),
+        "inputName": input_name,
+        "visibleTensors": {},
+        "mapping": mapping,
+        "ranges": {
+            channel: [format(ranges[channel][0], "g"), format(ranges[channel][1], "g")]
+            for channel in LINEAR_LAYOUT_CHANNELS
+        },
+    }
 
 
 def _linear_layout_state(
@@ -315,6 +378,7 @@ def create_layout_session_data(
     layout: Any,
     *,
     name: str | None = None,
+    input_name: str = "Hardware Layout",
     color_axes: LayoutColorAxes | None = None,
     color_ranges: LayoutColorRanges | None = None,
 ) -> SessionData:
@@ -336,6 +400,14 @@ def create_layout_session_data(
     output_shape = tuple(size for _dim_name, size in output_dims)
     channel_axes = _normalize_color_axes(input_names, input_shape, color_axes)
     linear_layout_state = _linear_layout_state(input_dims, color_axes, color_ranges)
+    compose_layout_state = _compose_layout_state(
+        name or "Layout",
+        input_name,
+        input_dims,
+        output_dims,
+        color_axes,
+        color_ranges,
+    )
     linear_layout_spec = {
         "name": name or "Layout",
         "input_dims": [
@@ -427,6 +499,7 @@ def create_layout_session_data(
     manifest["tabs"][0]["viewer"]["dimensionMappingScheme"] = "contiguous"
     manifest["tabs"][0]["viewer"]["linearLayoutState"] = linear_layout_state
     manifest["tabs"][0]["viewer"]["linearLayoutSpec"] = linear_layout_spec
+    manifest["tabs"][0]["viewer"]["composeLayoutState"] = compose_layout_state
     return SessionData(
         manifest_bytes=json.dumps(manifest).encode("utf-8"),
         tensor_bytes=session_data.tensor_bytes,
@@ -434,7 +507,7 @@ def create_layout_session_data(
 
 
 def create_layouts_session_data(
-    layouts: dict[str, Any] | list[tuple[str, Any]],
+    layouts: dict[str, Any] | list[tuple[str, Any] | tuple[str, Any, str]],
     *,
     color_axes: LayoutColorAxes | None = None,
     color_ranges: LayoutColorRanges | None = None,
@@ -444,10 +517,16 @@ def create_layouts_session_data(
     entries = layouts.items() if isinstance(layouts, dict) else layouts
     manifest = {"version": 1, "tabs": []}
     tensor_bytes: dict[str, bytes] = {}
-    for tab_index, (name, layout) in enumerate(entries, start=1):
+    for tab_index, entry in enumerate(entries, start=1):
+        if len(entry) == 2:
+            name, layout = entry
+            input_name = "Hardware Layout"
+        else:
+            name, layout, input_name = entry
         session_data = create_layout_session_data(
             layout,
             name=name,
+            input_name=input_name,
             color_axes=color_axes,
             color_ranges=color_ranges,
         )
@@ -478,6 +557,7 @@ def visualize_layout(
     layout: Any,
     *,
     name: str | None = None,
+    input_name: str = "Hardware Layout",
     color_axes: LayoutColorAxes | None = None,
     color_ranges: LayoutColorRanges | None = None,
     open_browser: bool = True,
@@ -490,6 +570,7 @@ def visualize_layout(
     session_data = create_layout_session_data(
         layout,
         name=name,
+        input_name=input_name,
         color_axes=color_axes,
         color_ranges=color_ranges,
     )
@@ -504,7 +585,7 @@ def visualize_layout(
 
 
 def visualize_layouts(
-    layouts: dict[str, Any] | list[tuple[str, Any]],
+    layouts: dict[str, Any] | list[tuple[str, Any] | tuple[str, Any, str]],
     *,
     color_axes: LayoutColorAxes | None = None,
     color_ranges: LayoutColorRanges | None = None,

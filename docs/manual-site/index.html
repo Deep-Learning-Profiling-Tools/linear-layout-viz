@@ -118,7 +118,7 @@
     </div>
 
     <div class="intro">
-      This viewer shows paired hardware and logical layouts and lets you inspect how cells map between them.
+      This viewer renders a chain of named layouts built from composition, products, and inverses, and lets you inspect how cells map across every visible tensor in that chain.
     </div>
 
     <section>
@@ -129,7 +129,7 @@
         <li><code>Ctrl + left click + drag</code>: remove cells from the current selection.</li>
         <li><code>Click</code> on empty space: clear the current selection.</li>
       </ul>
-      <p>Selections are paired across hardware and logical layouts. Selecting cells in one view highlights the mapped cells in the other.</p>
+      <p>Selections are paired across the visible tensors in the current render chain. Selecting cells in one tensor highlights the mapped cells everywhere else.</p>
       <div class="video-grid">
         <figure>
           <video controls preload="metadata" src="../manual-vids/0-lclick-drag.mp4"></video>
@@ -152,8 +152,8 @@
 
     <section>
       <h2>Inspector</h2>
-      <p>The <code>Inspector</code> widget shows the hovered tensor, hardware coordinate, logical coordinate, binary coordinates, tensor shape, and rank.</p>
-      <p>For linear-layout tabs, <code>Hardware Coord</code> is the <code>T/W/R</code> coordinate and <code>Logical Coord</code> is the <code>A/B/...</code> coordinate.</p>
+      <p>The <code>Inspector</code> widget shows the hovered tensor, root input coordinate, current tensor coordinate, binary coordinates, tensor shape, and rank.</p>
+      <p>For compose-layout tabs, <code>Root Input Coord</code> is the coordinate in the input space of the rendered operation, and <code>Current Tensor Coord</code> is the coordinate in the hovered tensor itself.</p>
       <div class="video-grid">
         <figure>
           <video controls preload="metadata" src="../manual-vids/4-inspector.mp4"></video>
@@ -164,7 +164,7 @@
 
     <section>
       <h2>Show Matrix</h2>
-      <p><code>Show Matrix</code> displays the current rendered layout matrix. It is tab-specific, updates when the layout is rendered, and color-codes row and column labels to match the dimension-line colors.</p>
+      <p><code>Show Matrix</code> displays the matrices for the named layouts and intermediate temporaries used to evaluate the current tab. It is tab-specific, updates when the layout is rendered or when you switch tabs, and color-codes row and column labels to match the dimension-line colors.</p>
       <div class="video-grid">
         <figure>
           <video controls preload="metadata" src="../manual-vids/5-show-matrix.mp4"></video>
@@ -179,7 +179,7 @@
         <li>Click a tab to switch layouts.</li>
         <li><code>Add New Tab</code> duplicates the current tab as a new editable tab.</li>
         <li>Click the <code>x</code> on a tab to close it.</li>
-        <li>Each tab stores its own layout, slicing state, HSL settings, and cell-text settings.</li>
+        <li>Each tab stores its own specifications, layout operation, input tensor name, visible tensors, slicing state, color settings, and cell-text settings.</li>
       </ul>
       <div class="video-grid">
         <figure>
@@ -196,7 +196,7 @@
         <li>Edit the <code>View String</code> to permute or hide axes.</li>
         <li>Use the slice sliders to move through hidden-axis indices.</li>
       </ul>
-      <p>For paired linear-layout tabs, slicing one tensor filters the corresponding visible cells in the other tensor as well.</p>
+      <p>For compose-layout tabs, slicing one tensor filters the corresponding visible cells in every other visible tensor in the render chain.</p>
       <div class="video-grid">
         <figure>
           <video controls preload="metadata" src="../manual-vids/7-slicing.mp4"></video>
@@ -207,13 +207,15 @@
 
     <section>
       <h2>HSL Coloring</h2>
-      <p>Use the <code>HSL Mapping</code> widget to control cell colors.</p>
+      <p>Use the <code>Color Mapping</code> widget to control cell colors.</p>
       <ul>
-        <li>Drag the <code>H</code>, <code>S</code>, and <code>L</code> chips to swap which axis drives each channel.</li>
+        <li>Drag the <code>H</code>, <code>S</code>, and <code>L</code> chips to swap which root-input axis drives each channel.</li>
+        <li>Drag labels from <code>Available Axes</code> onto <code>H</code>, <code>S</code>, or <code>L</code> to assign them.</li>
+        <li>Drag a colored axis back into <code>Available Axes</code> to clear that channel.</li>
         <li>Edit the start/end numeric fields for each channel range.</li>
         <li>Click <code>Recolor Layout</code> to apply the updated coloring.</li>
       </ul>
-      <p>The mapping is per tab.</p>
+      <p>The mapping is per tab and is defined on the root input axes of the current layout operation.</p>
       <div class="video-grid">
         <figure>
           <video controls preload="metadata" src="../manual-vids/8-hsl-coloring.mp4"></video>
@@ -224,13 +226,12 @@
 
     <section>
       <h2>Cell Text</h2>
-      <p>Use the <code>Cell Text</code> widget to overlay hardware ids on cells:</p>
+      <p>Use the <code>Cell Text</code> widget to overlay root-input label values on cells:</p>
       <ul>
-        <li><code>Warp Id</code></li>
-        <li><code>Thread Id</code></li>
-        <li><code>Register Id</code></li>
+        <li>one checkbox is shown per root input label</li>
+        <li>checked labels are drawn on every visible tensor</li>
       </ul>
-      <p>Text appears on both the hardware and logical layouts. Logical cells show the mapped hardware ids for the corresponding element.</p>
+      <p>Text is derived from the root input coordinate that maps to each cell, so every visible tensor shows consistent labels for the same underlying element.</p>
       <div class="video-grid">
         <figure>
           <video controls preload="metadata" src="../manual-vids/9-cell-text.mp4"></video>

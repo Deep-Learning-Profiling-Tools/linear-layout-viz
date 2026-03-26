@@ -9,6 +9,7 @@ A visualizer for Triton linear layouts.
 - Paper: [Linear Layouts: Robust Code Generation of Efficient Tensor Computation Using F_2](https://arxiv.org/pdf/2505.23819)
 
 See [MANUAL.md](./MANUAL.md) for the viewer interaction guide.
+See [COMPOSE_SPEC.md](./COMPOSE_SPEC.md) for the compose-layout text format and evaluation rules.
 See [docs/sample-svgs/](./docs/sample-svgs/README.md) for example exported SVGs.
 
 ## Structure
@@ -47,5 +48,6 @@ The built site is written to `tensor-viz/packages/viewer-demo/dist`.
 ## Usage
 
 - For day-to-day viewer usage, see [MANUAL.md](./MANUAL.md).
+- For the multi-layout compose language, see [COMPOSE_SPEC.md](./COMPOSE_SPEC.md).
 - The manual covers selection, inspector, matrix view, tabs, slicing, HSL coloring, cell text, display toggles, and saving SVG output.
 - For example exports, see [docs/sample-svgs/](./docs/sample-svgs/README.md).

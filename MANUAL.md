@@ -3,7 +3,7 @@
 **NOTE:** This manual is better viewed within the visualizer - there's a button called "Manual" in the bottom-left corner that has video previews of all the actions.
 
 
-This viewer shows paired hardware and logical layouts and lets you inspect how cells map between them.
+This viewer renders a chain of named layouts built from composition, products, and inverses, and lets you inspect how cells map across every visible tensor in that chain.
 
 ## Selection
 
@@ -12,7 +12,7 @@ This viewer shows paired hardware and logical layouts and lets you inspect how c
 - `Ctrl + left click + drag`: remove cells from the current selection.
 - `Click` on empty space: clear the current selection.
 
-Selections are paired across hardware and logical layouts. Selecting cells in one view highlights the mapped cells in the other.
+Selections are paired across the visible tensors in the current render chain. Selecting cells in one tensor highlights the mapped cells everywhere else.
 
 Videos:
 
@@ -26,14 +26,14 @@ Videos:
 The `Inspector` widget shows information for the cell under the cursor:
 
 - hovered tensor
-- hardware coordinate
-- logical coordinate
-- hardware coordinate in binary
-- logical coordinate in binary
+- root input coordinate
+- current tensor coordinate
+- root input coordinate in binary
+- current tensor coordinate in binary
 - tensor shape
 - rank
 
-For linear-layout tabs, `Hardware Coord` is the `T/W/R` coordinate and `Logical Coord` is the `A/B/...` coordinate.
+For compose-layout tabs, `Root Input Coord` is the coordinate in the input space of the rendered operation, and `Current Tensor Coord` is the coordinate in the hovered tensor itself.
 
 Video:
 
@@ -41,10 +41,10 @@ Video:
 
 ## Show Matrix
 
-`Show Matrix` displays the current rendered layout matrix.
+`Show Matrix` displays the matrices for the named layouts and intermediate temporaries used to evaluate the current tab.
 
 - It is tab-specific.
-- It updates when the layout is rendered.
+- It updates when the layout is rendered or when you switch tabs.
 - Row and column labels are color-coded to match the dimension-line colors.
 
 Video:
@@ -56,7 +56,7 @@ Video:
 - Click a tab to switch layouts.
 - `Add New Tab` duplicates the current tab as a new editable tab.
 - Click the `x` on a tab to close it.
-- Each tab stores its own layout, slicing state, HSL settings, and cell-text settings.
+- Each tab stores its own specifications, layout operation, input tensor name, visible tensors, slicing state, color settings, and cell-text settings.
 
 Video:
 
@@ -69,7 +69,7 @@ Use the `Tensor View` widget to change the active tensor view and slice hidden a
 - Edit the `View String` to permute or hide axes.
 - Use the slice sliders to move through hidden-axis indices.
 
-For paired linear-layout tabs, slicing one tensor filters the corresponding visible cells in the other tensor as well.
+For compose-layout tabs, slicing one tensor filters the corresponding visible cells in every other visible tensor in the render chain.
 
 Video:
 
@@ -77,13 +77,15 @@ Video:
 
 ## HSL Coloring
 
-Use the `HSL Mapping` widget to control the cell colors.
+Use the `Color Mapping` widget to control the cell colors.
 
-- Drag the `H`, `S`, and `L` chips to swap which axis drives each channel.
+- Drag the `H`, `S`, and `L` chips to swap which root-input axis drives each channel.
+- Drag labels from `Available Axes` onto `H`, `S`, or `L` to assign them.
+- Drag a colored axis back into `Available Axes` to clear that channel.
 - Edit the start/end numeric fields for each channel range.
 - Click `Recolor Layout` to apply the updated coloring.
 
-The mapping is per tab.
+The mapping is per tab and is defined on the root input axes of the current layout operation.
 
 Video:
 
@@ -91,13 +93,12 @@ Video:
 
 ## Cell Text
 
-Use the `Cell Text` widget to overlay hardware ids on cells.
+Use the `Cell Text` widget to overlay root-input label values on cells.
 
-- `Warp Id`
-- `Thread Id`
-- `Register Id`
+- One checkbox is shown per root input label.
+- Checked labels are drawn on every visible tensor.
 
-Text appears on both the hardware and logical layouts. Logical cells show the mapped hardware ids for the corresponding element.
+Text is derived from the root input coordinate that maps to each cell, so every visible tensor shows consistent labels for the same underlying element.
 
 Video:
 

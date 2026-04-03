@@ -18,12 +18,13 @@ from tensor_viz import SessionData, create_session_data, viz
 LayoutColorAxes = Mapping[str, str]
 LayoutColorRanges = Mapping[str, tuple[float, float]]
 DEFAULT_COLOR_RANGES = {
-    "H": (0.0, 0.85),
-    "S": (0.35, 0.95),
-    "L": (0.25, 0.95),
+    "H": (0.0, 0.8),
+    "S": (1.0, 0.2),
+    "L": (1.0, 0.2),
 }
 LINEAR_LAYOUT_AXES = ("thread", "warp", "register")
 LINEAR_LAYOUT_CHANNELS = ("H", "S", "L")
+AUTO_COLOR_CHANNELS = ("H", "L", "S")
 OUTPUT_AXIS_NAMES = (
     "x",
     "y",
@@ -61,16 +62,6 @@ def _compose_identifier(name: str) -> str:
     if not cleaned:
         return "Layout_1"
     return cleaned if (cleaned[0].isalpha() or cleaned[0] == "_") else f"Layout_{cleaned}"
-
-
-def _axis_by_name(names: list[str], needle: str, default: int | None) -> int | None:
-    """Return the first axis whose name contains ``needle``."""
-
-    lowered = needle.lower()
-    return next(
-        (axis for axis, name in enumerate(names) if lowered in name.lower()),
-        default,
-    )
 
 
 def _dense_hs_values(colors: np.ndarray) -> list[float]:
@@ -124,15 +115,7 @@ def _compose_layout_state(
     raw_input_names = [dim_name for dim_name, _bases in input_dims]
     input_labels = _viewer_axis_labels(raw_input_names)
     output_labels = _viewer_axis_labels([dim_name for dim_name, _size in output_dims])
-    mapping = {channel: "none" for channel in LINEAR_LAYOUT_CHANNELS}
-    for raw_name, label in zip(raw_input_names, input_labels, strict=True):
-        axis_label = _linear_layout_axis_label(raw_name)
-        if axis_label == "warp":
-            mapping["H"] = label
-        elif axis_label == "thread":
-            mapping["S"] = label
-        elif axis_label == "register":
-            mapping["L"] = label
+    mapping = _auto_color_mapping(input_labels, input_dims)
     if color_axes:
         for axis_name, channel_name in color_axes.items():
             channel = channel_name.upper()
@@ -150,8 +133,8 @@ def _compose_layout_state(
         "specsText": "\n".join([
             f"{_compose_identifier(name)}: [{','.join(input_labels)}] -> [{','.join(output_labels)}]",
             *[
-                json.dumps(dim_bases or [], separators=(",", ":"))
-                for _dim_name, dim_bases in input_dims
+                f"{input_labels[axis]}:{json.dumps(dim_bases or [], separators=(',', ':'))}"
+                for axis, (_dim_name, dim_bases) in enumerate(input_dims)
             ],
         ]),
         "operationText": _compose_identifier(name),
@@ -181,12 +164,10 @@ def _linear_layout_state(
             continue
         axis_labels[dim_name] = axis_label
         bases[axis_label] = json.dumps(dim_bases or [], separators=(",", ":"))
-    present = set(axis_labels.values())
-    mapping: dict[str, str] = {
-        "H": "warp" if "warp" in present else "none",
-        "S": "thread" if "thread" in present else "none",
-        "L": "register" if "register" in present else "none",
-    }
+    mapping = _auto_color_mapping(
+        [axis_labels[dim_name] for dim_name, _dim_bases in input_dims if dim_name in axis_labels],
+        [(axis_labels[dim_name], dim_bases) for dim_name, dim_bases in input_dims if dim_name in axis_labels],
+    )
     if color_axes:
         for axis_name, channel_name in color_axes.items():
             channel = channel_name.upper()
@@ -194,7 +175,7 @@ def _linear_layout_state(
                 continue
             axis_index = _resolve_axis(input_names, axis_name)
             axis_label = _linear_layout_axis_label(input_names[axis_index])
-            mapping[channel] = axis_label if axis_label in LINEAR_LAYOUT_AXES else "none"
+            mapping[channel] = axis_label if axis_label is not None else mapping[channel]
     ranges = DEFAULT_COLOR_RANGES if color_ranges is None else {
         **DEFAULT_COLOR_RANGES,
         **color_ranges,
@@ -211,6 +192,26 @@ def _linear_layout_state(
         "mapping": mapping,
         "ranges": range_state,
     }
+
+
+def _auto_color_mapping(
+    input_labels: list[str],
+    input_dims: list[tuple[str, Any]],
+) -> dict[str, str]:
+    """Map largest input dims to H, then L, then S."""
+
+    ranked = sorted(
+        (
+            (1 << len(dim_bases), axis, input_labels[axis])
+            for axis, (_dim_name, dim_bases) in enumerate(input_dims)
+        ),
+        key=lambda entry: (-entry[0], -entry[1]),
+    )
+    mapping = {channel: "none" for channel in LINEAR_LAYOUT_CHANNELS}
+    for channel, index in zip(AUTO_COLOR_CHANNELS, range(len(AUTO_COLOR_CHANNELS)), strict=True):
+        if index < len(ranked):
+            mapping[channel] = ranked[index][2]
+    return mapping
 
 
 def _logical_output_dims(output_dims: list[tuple[str, int]]) -> list[tuple[str, int]]:
@@ -305,11 +306,11 @@ def _normalize_color_axes(
 ) -> dict[str, int | None]:
     """Resolve which input axes drive hue, saturation, and lightness."""
 
-    channels = {
-        "H": _axis_by_name(input_names, "thread", 1 if len(input_shape) >= 3 else None),
-        "S": _axis_by_name(input_names, "warp", 0 if len(input_shape) >= 3 else None),
-        "L": _axis_by_name(input_names, "reg", len(input_shape) - 1 if input_shape else None),
-    }
+    ranked_axes = sorted(range(len(input_shape)), key=lambda axis: (-input_shape[axis], -axis))
+    channels = {channel: None for channel in LINEAR_LAYOUT_CHANNELS}
+    for channel, rank in zip(AUTO_COLOR_CHANNELS, range(len(AUTO_COLOR_CHANNELS)), strict=True):
+        if rank < len(ranked_axes):
+            channels[channel] = ranked_axes[rank]
     if color_axes is None:
         return channels
     for axis_name, channel_name in color_axes.items():

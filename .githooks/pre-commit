@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-set -euo pipefail
-
-# the outer repo only tracks the tensor-viz gitlink, not files inside the submodule.
-# sync/stage the generated linear-layout example file in tensor-viz's own pre-commit hook instead.

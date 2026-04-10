@@ -71,6 +71,17 @@ DEMOS = {
         ),
         "Logical Offsets",
     ),
+    "sliced": (
+        "Sliced Layout",
+        LinearLayout.from_bases(
+            [
+                ("Y", [[0, 1], [0, 2]]),
+                ("X", [[0, 0], [0, 0], [1, 0]]),
+            ],
+            ["A", "B"],
+        ),
+        "Logical Offsets",
+    ),
 }
 
 

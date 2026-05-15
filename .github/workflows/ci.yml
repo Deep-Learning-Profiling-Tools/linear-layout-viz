@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - linear-layout-website
+
+jobs:
+  tensor-viz:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tensor-viz
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: npm install
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run build

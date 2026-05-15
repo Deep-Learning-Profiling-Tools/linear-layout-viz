@@ -71,7 +71,7 @@ Inside `tensor-viz/`:
 
 ## Architecture Guides
 
-Workflow-specific instructions live next to the code they describe:
+To add/modify features within the current system architecture, architecture docs live next to the code they describe:
 
 - [Linear layout demo app](./tensor-viz/packages/viewer-demo/src/ARCHITECTURE.md):
   parsing, composition, runtime metadata, and generated Python.

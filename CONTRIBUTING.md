@@ -1,5 +1,7 @@
 # Contributing
 
+**NOTE: This project was purely built with coding agents, and any contributions will be purely reviewed by coding agents. As for now, only PRs that add/modify layout presets will be considered as the rest of the codebase is subject to change.**
+
 ## Setup
 
 This repository wraps the `tensor-viz/` submodule, where the viewer code lives.

@@ -63,9 +63,8 @@ Inside `tensor-viz/`:
 - `packages/viewer-core/src/`: reusable viewer engine, layout math, session
   model, rendering, and core tests.
 - `packages/viewer-demo/src/`: the full linear-layout demo app and UI.
-- `packages/viewer-demo/src/linear-layout-presets/`: instruction-family preset
-  definitions.
-- `packages/viewer-demo/src/widgets/`: sidebar widgets split by user workflow.
+- `packages/viewer-demo/src/extensions/linear-layout/`: LL-viz extension,
+  parser/model code, preset definitions, widgets, and tests.
 - `python/src/tensor_viz/`: Python package and local server.
 - `python/tests/`: Python documentation and API tests.
 - `docs/`: Sphinx and TypeDoc documentation sources.
@@ -76,10 +75,12 @@ Inside `tensor-viz/`:
 To add/modify features within the current system architecture, architecture docs live next to the code they describe:
 
 - [Linear layout demo app](./tensor-viz/packages/viewer-demo/src/ARCHITECTURE.md):
-  parsing, composition, runtime metadata, and generated Python.
-- [Linear layout presets](./tensor-viz/packages/viewer-demo/src/linear-layout-presets/ARCHITECTURE.md):
+  demo shell, extension registry, and app-level lifecycle hooks.
+- [Linear layout extension](./tensor-viz/packages/viewer-demo/src/extensions/linear-layout/ARCHITECTURE.md):
+  parsing, composition, runtime metadata, widgets, and generated Python.
+- [Linear layout presets](./tensor-viz/packages/viewer-demo/src/extensions/linear-layout/presets/ARCHITECTURE.md):
   adding NVIDIA, AMD, or other preset families.
-- [Linear layout widgets](./tensor-viz/packages/viewer-demo/src/widgets/ARCHITECTURE.md):
+- [Linear layout widgets](./tensor-viz/packages/viewer-demo/src/extensions/linear-layout/widgets/ARCHITECTURE.md):
   sidebar UI ownership and shared widget code.
 - [Viewer core](./tensor-viz/packages/viewer-core/src/ARCHITECTURE.md):
   reusable layout, view, session, and rendering behavior.

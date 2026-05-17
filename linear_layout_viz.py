@@ -11,9 +11,10 @@ from typing import Any
 
 import numpy as np
 
+# use the checked-out submodule so the root demo works before tensor-viz is published
 sys.path.insert(0, str(Path(__file__).resolve().parent / "tensor-viz" / "python" / "src"))
 
-from tensor_viz import SessionData, create_session_data, viz
+from tensor_viz import SessionData, ViewerSession, create_session_data, viz
 
 LayoutColorAxes = Mapping[str, str]
 LayoutColorRanges = Mapping[str, tuple[float, float]]
@@ -62,12 +63,6 @@ def _compose_identifier(name: str) -> str:
     if not cleaned:
         return "Layout_1"
     return cleaned if (cleaned[0].isalpha() or cleaned[0] == "_") else f"Layout_{cleaned}"
-
-
-def _dense_hs_values(colors: np.ndarray) -> list[float]:
-    """Flatten one dense HS tensor into viewer manifest order."""
-
-    return colors.reshape(-1, 2).ravel().tolist()
 
 
 def _dense_rgb_values(colors: np.ndarray) -> list[float]:
@@ -218,6 +213,7 @@ def _logical_output_dims(output_dims: list[tuple[str, int]]) -> list[tuple[str, 
     """Return logical output dims in viewer order."""
 
     names = [name.lower() for name, _size in output_dims]
+    # the legacy x/y demos were authored in math order, while the viewer expects row/col order
     return list(reversed(output_dims)) if names == ["x", "y"] else output_dims
 
 
@@ -282,6 +278,7 @@ def _hardware_input_dims(
     dims = [(dim_name, 1 << len(bases)) for dim_name, bases in input_dims]
     if len(dims) != 3:
         return dims, tuple(range(len(dims)))
+    # triton's hardware axes read better as warp/thread/register in the default 2d view
     axis_order = (1, 0, 2)
     return [dims[axis] for axis in axis_order], axis_order
 
@@ -322,18 +319,6 @@ def _normalize_color_axes(
     if len(used_axes) != len(set(used_axes)):
         raise ValueError("Each color axis must map to at most one channel.")
     return channels
-
-
-def _hue(value: int, size: int) -> int:
-    """Return one hue value from an input axis coordinate."""
-
-    return round((360 * value) / size) if size > 1 else 0
-
-
-def _saturation(value: int, size: int) -> float:
-    """Return one saturation value from an input axis coordinate."""
-
-    return (value + 1) / size if size > 0 else 1.0
 
 
 def _color_value(
@@ -383,7 +368,23 @@ def create_layout_session_data(
     color_axes: LayoutColorAxes | None = None,
     color_ranges: LayoutColorRanges | None = None,
 ) -> SessionData:
-    """Build a tensor-viz session for a linear-layout input/output mapping."""
+    """Build a tensor-viz session for a linear-layout input/output mapping.
+
+    Args:
+        layout: Triton LinearLayout-like object exposing `bases`.
+        name: Optional tab title and generated compose-layout function name.
+        input_name: Human-readable name for the hardware/input tensor.
+        color_axes: Optional mapping from layout axis name to H, S, or L.
+        color_ranges: Optional per-channel numeric range overrides.
+
+    Returns:
+        SessionData containing one hardware tensor, one logical tensor, and the
+        linear-layout metadata consumed by the browser extension.
+
+    Example:
+        `create_layout_session_data(layout, name="MMA A")` creates a single-tab
+        session that can be passed to `tensor_viz.viz`.
+    """
 
     input_dims = list(layout.bases)
     input_names = [dim_name for dim_name, _bases in input_dims]
@@ -498,6 +499,7 @@ def create_layout_session_data(
     if logical_marker_coords:
         manifest["tabs"][0]["tensors"][1]["markerCoords"] = logical_marker_coords
     manifest["tabs"][0]["viewer"]["dimensionMappingScheme"] = "contiguous"
+    # both legacy and compose metadata are included so old saved tabs and the current extension load the same demo
     manifest["tabs"][0]["viewer"]["linearLayoutState"] = linear_layout_state
     manifest["tabs"][0]["viewer"]["linearLayoutSpec"] = linear_layout_spec
     manifest["tabs"][0]["viewer"]["composeLayoutState"] = compose_layout_state
@@ -513,7 +515,21 @@ def create_layouts_session_data(
     color_axes: LayoutColorAxes | None = None,
     color_ranges: LayoutColorRanges | None = None,
 ) -> SessionData:
-    """Build one multi-tab session for several linear layouts."""
+    """Build one multi-tab tensor-viz session for several linear layouts.
+
+    Args:
+        layouts: Mapping or list of `(name, layout)` / `(name, layout, input_name)`
+            entries.
+        color_axes: Optional mapping from layout axis name to H, S, or L.
+        color_ranges: Optional per-channel numeric range overrides.
+
+    Returns:
+        SessionData with one tab per layout and tab-scoped tensor payload paths.
+
+    Example:
+        `create_layouts_session_data({"blocked": layout})` creates one tab named
+        `blocked`.
+    """
 
     entries = layouts.items() if isinstance(layouts, dict) else layouts
     manifest = {"version": 1, "tabs": []}
@@ -535,6 +551,7 @@ def create_layouts_session_data(
         tab = layout_manifest["tabs"][0]
         tab_id = f"tab-{tab_index}"
         remapped_ids: dict[str, str] = {}
+        # tensor ids and payload names must be tab-local or later tabs overwrite earlier bytes
         for tensor_index, tensor in enumerate(tab["tensors"], start=1):
             tensor_id = f"tensor-{tensor_index}"
             remapped_ids[tensor["id"]] = tensor_id
@@ -565,8 +582,26 @@ def visualize_layout(
     host: str = "127.0.0.1",
     port: int = 0,
     keep_alive: bool = True,
-):
-    """Launch the viewer for one linear layout."""
+) -> ViewerSession:
+    """Launch the browser viewer for one linear layout.
+
+    Args:
+        layout: Triton LinearLayout-like object exposing `bases`.
+        name: Optional tab title.
+        input_name: Human-readable name for the hardware/input tensor.
+        color_axes: Optional mapping from layout axis name to H, S, or L.
+        color_ranges: Optional per-channel numeric range overrides.
+        open_browser: Whether to open the local viewer URL.
+        host: Bind host for the local tensor-viz server.
+        port: Bind port, or 0 to choose a free port.
+        keep_alive: Whether the returned session should keep serving.
+
+    Returns:
+        ViewerSession for the local tensor-viz server.
+
+    Example:
+        `visualize_layout(layout, name="Blocked Layout")` opens one tab.
+    """
 
     session_data = create_layout_session_data(
         layout,
@@ -594,8 +629,25 @@ def visualize_layouts(
     host: str = "127.0.0.1",
     port: int = 0,
     keep_alive: bool = True,
-):
-    """Launch the viewer for several linear layouts, one tab per layout."""
+) -> ViewerSession:
+    """Launch the browser viewer for several linear layouts, one tab per layout.
+
+    Args:
+        layouts: Mapping or list of `(name, layout)` / `(name, layout, input_name)`
+            entries.
+        color_axes: Optional mapping from layout axis name to H, S, or L.
+        color_ranges: Optional per-channel numeric range overrides.
+        open_browser: Whether to open the local viewer URL.
+        host: Bind host for the local tensor-viz server.
+        port: Bind port, or 0 to choose a free port.
+        keep_alive: Whether the returned session should keep serving.
+
+    Returns:
+        ViewerSession for the local tensor-viz server.
+
+    Example:
+        `visualize_layouts(list(DEMOS.values()))` opens one tab per demo.
+    """
 
     session_data = create_layouts_session_data(
         layouts,

@@ -1,3 +1,4 @@
 [submodule "tensor-viz"]
 	path = tensor-viz
 	url = https://github.com/Deep-Learning-Profiling-Tools/tensor-viz
+	branch = main

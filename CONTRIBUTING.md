@@ -10,6 +10,7 @@ This repository wraps the `tensor-viz/` submodule, where the viewer code lives.
 git submodule update --init --recursive
 cd tensor-viz
 npm install
+npx playwright install chromium
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .
@@ -76,6 +77,10 @@ To add/modify features within the current system architecture, architecture docs
 
 - [Linear layout demo app](./tensor-viz/packages/viewer-demo/src/ARCHITECTURE.md):
   demo shell, extension registry, and app-level lifecycle hooks.
+- [Root LL-viz wrapper](./ARCHITECTURE.md): root demo scripts, submodule
+  boundary, and CI/deploy ownership.
+- [Tensor-viz monorepo](./tensor-viz/ARCHITECTURE.md): package boundaries,
+  build order, and test responsibilities.
 - [Linear layout extension](./tensor-viz/packages/viewer-demo/src/extensions/linear-layout/ARCHITECTURE.md):
   parsing, composition, runtime metadata, widgets, and generated Python.
 - [Linear layout presets](./tensor-viz/packages/viewer-demo/src/extensions/linear-layout/presets/ARCHITECTURE.md):
@@ -89,6 +94,9 @@ To add/modify features within the current system architecture, architecture docs
 - [Root documentation assets](./docs/ARCHITECTURE.md) and
   [tensor-viz package docs](./tensor-viz/docs/ARCHITECTURE.md): manual pages,
   Sphinx docs, generated references, and demo asset synchronization.
+- [Browser e2e tests](./tensor-viz/packages/viewer-demo/e2e/ARCHITECTURE.md):
+  Playwright smoke coverage for startup, widgets, command palette, and canvas
+  paint.
 
 ## Documentation Standards
 

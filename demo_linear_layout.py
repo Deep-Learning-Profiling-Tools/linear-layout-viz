@@ -1,13 +1,7 @@
+"""Launch a small set of sample Triton LinearLayout objects in tensor-viz."""
+
 from triton.tools import LinearLayout
 from linear_layout_viz import visualize_layouts
-
-#COLOR_AXES = {"warp": "H", "thread": "S", "reg": "L"}
-#COLOR_RANGES = {
-#    "H": (0.0, 0.8),
-#    "S": (0, 0),
-#    #"S": (0.25, 1.0),
-#    "L": (0, 1.0),
-#}
 
 DEMOS = {
     "blocked": (
@@ -88,6 +82,4 @@ DEMOS = {
 if __name__ == "__main__":
     visualize_layouts(
         list(DEMOS.values()),
-        #color_axes=COLOR_AXES,
-        #color_ranges=COLOR_RANGES,
     )

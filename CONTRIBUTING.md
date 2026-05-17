@@ -56,10 +56,12 @@ comment-line density, and the helper-function rule from `AGENTS.md`: non-exporte
 top-level helpers should have at least three local references unless their JSDoc
 marks them as an `@interfaceBoundary`.
 
-`npm run check:ts-docs:staged` is what the pre-commit hook runs and is intended
-for incremental work. `npm run check:ts-docs` audits the full TypeScript tree and
-may fail while existing files are still being brought up to the documentation
-standard.
+`npm run check:ts-docs:staged` is what the pre-commit hook runs; it audits each
+staged TypeScript source file as a whole file. `npm run check:ts-docs` audits the
+full TypeScript tree and may fail while existing files are still being brought up
+to the documentation standard. For targeted cleanup, run
+`node tools/check-ts-docs.mjs packages/viewer-demo/src/app-entry.ts` from
+`tensor-viz/`.
 
 ## File Structure
 

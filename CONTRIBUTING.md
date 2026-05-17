@@ -11,6 +11,7 @@ git submodule update --init --recursive
 cd tensor-viz
 npm install
 npx playwright install chromium
+git config core.hooksPath .githooks
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .
@@ -43,10 +44,22 @@ assets served by the Python package.
 Focused checks are useful while iterating:
 
 ```bash
+npm run check:ts-docs
+npm run check:ts-docs:staged
 npm run test --workspace @tensor-viz/viewer-core
 npm run test --workspace @tensor-viz/viewer-demo
 PYTHONPATH=python/src python -m unittest discover -s python/tests -p 'test_*.py'
 ```
+
+The TypeScript docs check enforces JSDoc blocks on declarations, a minimum
+comment-line density, and the helper-function rule from `AGENTS.md`: non-exported
+top-level helpers should have at least three local references unless their JSDoc
+marks them as an `@interfaceBoundary`.
+
+`npm run check:ts-docs:staged` is what the pre-commit hook runs and is intended
+for incremental work. `npm run check:ts-docs` audits the full TypeScript tree and
+may fail while existing files are still being brought up to the documentation
+standard.
 
 ## File Structure
 

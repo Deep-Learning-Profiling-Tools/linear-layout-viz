@@ -334,7 +334,6 @@ def _color_value(
         defaults = {"H": 0.0, "S": 1.0, "L": 0.0}
         return defaults[channel]
     position = 0.0 if shape[axis] <= 1 else coord[axis] / (shape[axis] - 1)
-    value = position
     ranges = DEFAULT_COLOR_RANGES if color_ranges is None else {
         **DEFAULT_COLOR_RANGES,
         **color_ranges,

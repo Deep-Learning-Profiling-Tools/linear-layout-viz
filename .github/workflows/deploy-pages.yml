@@ -18,11 +18,18 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      TENSOR_VIZ_REF: ll-viz-extraction
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+
+      - name: Checkout tensor-viz package source
+        uses: actions/checkout@v5
         with:
-          submodules: recursive
+          repository: Deep-Learning-Profiling-Tools/tensor-viz
+          ref: ${{ env.TENSOR_VIZ_REF }}
+          path: .tensor-viz-source
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -32,18 +39,27 @@ jobs:
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
-      - name: Install frontend dependencies
+      - name: Install tensor-viz package dependencies
         run: npm install
-        working-directory: tensor-viz
+        working-directory: .tensor-viz-source
+
+      - name: Pack tensor-viz npm packages
+        run: |
+          mkdir -p ../.tensor-viz-packs
+          npm pack --workspace @tensor-viz/viewer-core --pack-destination ../.tensor-viz-packs
+          npm pack --workspace @tensor-viz/viewer-demo --pack-destination ../.tensor-viz-packs
+        working-directory: .tensor-viz-source
+
+      - name: Install frontend dependencies
+        run: npm install --no-save .tensor-viz-packs/tensor-viz-viewer-core-0.1.0.tgz .tensor-viz-packs/tensor-viz-viewer-demo-0.1.0.tgz
 
       - name: Build static viewer demo
-        run: npm run build --workspace @tensor-viz/viewer-demo
-        working-directory: tensor-viz
+        run: npm run build
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:
-          path: tensor-viz/packages/viewer-demo/dist
+          path: dist
 
   deploy:
     runs-on: ubuntu-latest

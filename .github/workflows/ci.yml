@@ -8,23 +8,28 @@ on:
       - linear-layout-website
 
 jobs:
-  tensor-viz:
+  linear-layout-viz:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: tensor-viz
+    env:
+      TENSOR_VIZ_REF: ll-viz-extraction
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          submodules: true
+          repository: Deep-Learning-Profiling-Tools/tensor-viz
+          ref: ${{ env.TENSOR_VIZ_REF }}
+          path: .tensor-viz-source
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: python -m pip install -e .
       - run: npm install
+        working-directory: .tensor-viz-source
+      - run: |
+          mkdir -p ../.tensor-viz-packs
+          npm pack --workspace @tensor-viz/viewer-core --pack-destination ../.tensor-viz-packs
+          npm pack --workspace @tensor-viz/viewer-demo --pack-destination ../.tensor-viz-packs
+        working-directory: .tensor-viz-source
+      - run: npm install --no-save .tensor-viz-packs/tensor-viz-viewer-core-0.1.0.tgz .tensor-viz-packs/tensor-viz-viewer-demo-0.1.0.tgz
       - run: npx playwright install --with-deps chromium
       - run: npm run typecheck
       - run: npm run test

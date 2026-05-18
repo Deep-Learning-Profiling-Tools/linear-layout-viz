@@ -13,23 +13,25 @@ See [docs/sample-svgs/](./docs/sample-svgs/README.md) for example exported SVGs.
 
 ## Structure
 
-- `tensor-viz/`: git submodule pointing at `Deep-Learning-Profiling-Tools/tensor-viz`
+- `src/extensions/linear-layout/`: LL-viz extension, parser/model code, presets,
+  widgets, and tests.
+- `linear_layout_viz.py`, `demo_linear_layout.py`: Python helpers that generate
+  tensor-viz session data for Triton `LinearLayout` objects.
+- `assets/`, `docs/`, `MANUAL.md`: website media and user-facing guides.
 
 ## Setup
 
 ```bash
-git submodule update --init --recursive
-cd tensor-viz
 npm install
 python -m venv .venv
 source .venv/bin/activate
-pip install -e .
+pip install tensor-viz
 npm run build
 ```
 
 ### One-time GitHub setup
 
-1. Push this repo, including the submodule pointer you want Pages to build.
+1. Push this repo.
 2. In GitHub, open `Settings -> Pages`.
 3. Under `Build and deployment`, set `Source` to `GitHub Actions`.
 4. Push to `main`, or run the `Deploy GitHub Pages` workflow manually from the Actions tab.
@@ -37,12 +39,11 @@ npm run build
 ### Local preview of the same static site
 
 ```bash
-cd tensor-viz
 npm install
-npm run build --workspace @tensor-viz/viewer-demo
+npm run build
 ```
 
-The built site is written to `tensor-viz/packages/viewer-demo/dist`.
+The built site is written to `dist/`.
 
 ## Usage
 

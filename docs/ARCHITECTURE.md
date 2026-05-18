@@ -4,4 +4,6 @@ The root `docs/` directory holds project-level documentation assets for the host
 
 The root `MANUAL.md` is the source of truth for user-facing viewer behavior in this repository. When behavior changes, update `MANUAL.md` first, then refresh or curate the assets that illustrate that behavior. Do not hand-edit generated manual output when the source document or sync script should own the change.
 
-For package-level API documentation, use `tensor-viz/docs/ARCHITECTURE.md` instead. For demo assets copied into the package build, use the sync scripts under `tensor-viz/tools/` and finish with `npm run build` from `tensor-viz/`.
+For package-level tensor-viz API documentation, use the upstream `tensor-viz`
+repository. For LL-viz demo assets, keep source media in this docs tree and
+finish with `npm run build` from the repository root.

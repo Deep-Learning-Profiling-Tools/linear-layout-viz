@@ -1,0 +1,27 @@
+{
+  "name": "linear-layout-viz",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite",
+    "sync:linear-layout-examples": "python tools/sync-linear-layout-examples.py",
+    "test": "npm run test:unit && npm run test:e2e",
+    "test:e2e": "playwright test",
+    "test:unit": "vitest run src",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@tensor-viz/viewer-core": "^0.1.0",
+    "@tensor-viz/viewer-demo": "^0.1.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0",
+    "@types/node": "^25.8.0",
+    "pngjs": "^7.0.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.3",
+    "vitest": "^3.2.4"
+  }
+}

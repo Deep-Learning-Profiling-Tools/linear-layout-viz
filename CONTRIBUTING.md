@@ -1,24 +1,35 @@
 # Contributing
 
-**NOTE: This project was purely built with coding agents, and any contributions will be purely reviewed by coding agents. As for now, only PRs that add/modify layout presets will be considered as the rest of the codebase is subject to change.**
+**NOTE: This project was built with coding agents, and contributions are reviewed
+with coding-agent assistance. For now, preset additions and fixes are the
+expected external contribution path.**
 
 ## Setup
 
-This repository wraps the `tensor-viz/` submodule, where the viewer code lives.
+Install the root frontend dependencies and the published Python viewer package:
 
 ```bash
-git submodule update --init --recursive
-cd tensor-viz
 npm install
 npx playwright install chromium
-git config core.hooksPath .githooks
 python -m venv .venv
 source .venv/bin/activate
-pip install -e .
+pip install tensor-viz
 npm run build
 ```
 
-To check that linear-layout-viz is installed correctly, run this in the project root directory after building tensor-viz above:
+If the matching `@tensor-viz/viewer-core` and `@tensor-viz/viewer-demo` npm
+packages have not been published yet, build local tarballs from the tensor-viz
+extraction branch and install them with `npm install --no-save <tarball paths>`.
+The CI workflow does this automatically until those packages are available from
+the registry.
+
+On Windows PowerShell, activate the environment with:
+
+```powershell
+.venv\Scripts\Activate.ps1
+```
+
+To check the Python demo, run:
 
 ```bash
 python demo_linear_layout.py
@@ -26,101 +37,53 @@ python demo_linear_layout.py
 
 ## Testing Changes
 
-Run the full test suite from `tensor-viz/`:
+Run the full frontend suite before submitting a change:
 
 ```bash
+npm run typecheck
 npm run test
-```
-
-Before submitting any code change, also run:
-
-```bash
 npm run build
 ```
-
-The build is required even if tests pass because it refreshes the built demo
-assets served by the Python package.
 
 Focused checks are useful while iterating:
 
 ```bash
-npm run check:ts-docs
-npm run check:ts-docs:staged
-npm run test --workspace @tensor-viz/viewer-core
-npm run test --workspace @tensor-viz/viewer-demo
-PYTHONPATH=python/src python -m unittest discover -s python/tests -p 'test_*.py'
+npm run test:unit
+npm run test:e2e
+npm run sync:linear-layout-examples
 ```
 
-The TypeScript docs check enforces JSDoc blocks on declarations, a minimum
-comment-line density, and the helper-function rule from `AGENTS.md`: non-exported
-top-level helpers should have at least three local references unless their JSDoc
-marks them as an `@interfaceBoundary`.
-
-`npm run check:ts-docs:staged` is what the pre-commit hook runs; it audits each
-staged TypeScript source file as a whole file. `npm run check:ts-docs` audits the
-full TypeScript tree and may fail while existing files are still being brought up
-to the documentation standard. For targeted cleanup, run
-`node tools/check-ts-docs.mjs packages/viewer-demo/src/app-entry.ts` from
-`tensor-viz/`.
+`npm run sync:linear-layout-examples` rewrites the generated baked-example block
+inside `src/extensions/linear-layout/linear-layout.ts` from
+`demo_linear_layout.py`. Run it after changing the Python demo layouts.
 
 ## File Structure
 
-- `README.md`: project overview, public website links, and top-level setup.
-- `MANUAL.md`: user-facing viewer interaction guide.
-- `linear_layout_viz.py`, `demo_linear_layout.py`: root-level linear layout demos.
-- `assets/`: source media used by the README and project pages.
-- `docs/manual-site/`, `docs/manual-vids/`, `docs/sample-svgs/`: generated or
-  curated documentation assets.
-- `tensor-viz/`: submodule containing the Python package, TypeScript packages,
-  demo app, tests, docs, and build tooling.
+- `src/main.ts`: root Vite entrypoint that starts the tensor-viz shell with the
+  LL-viz extension factory.
+- `src/extensions/linear-layout/`: parser/model code, preset definitions,
+  sidebar widgets, viewer synchronization, and unit tests.
+- `linear_layout_viz.py`, `demo_linear_layout.py`: Python helpers and examples
+  that produce tensor-viz sessions for Triton `LinearLayout` objects.
+- `e2e/`: Playwright smoke tests for the real browser app.
+- `assets/`, `docs/`, `MANUAL.md`: website media, manual assets, and
+  user-facing docs.
 
-Inside `tensor-viz/`:
-
-- `packages/viewer-core/src/`: reusable viewer engine, layout math, session
-  model, rendering, and core tests.
-- `packages/viewer-demo/src/`: the full linear-layout demo app and UI.
-- `packages/viewer-demo/src/extensions/linear-layout/`: LL-viz extension,
-  parser/model code, preset definitions, widgets, and tests.
-- `python/src/tensor_viz/`: Python package and local server.
-- `python/tests/`: Python documentation and API tests.
-- `docs/`: Sphinx and TypeDoc documentation sources.
-- `tools/`: synchronization scripts for examples and built demo assets.
+Tensor-viz itself is no longer vendored here. Generic viewer behavior belongs in
+the `Deep-Learning-Profiling-Tools/tensor-viz` repository and should be consumed
+through the published `@tensor-viz/*` npm packages.
 
 ## Architecture Guides
 
-To add/modify features within the current system architecture, architecture docs live next to the code they describe:
+Architecture docs live next to the code they describe:
 
-- [Linear layout demo app](./tensor-viz/packages/viewer-demo/src/ARCHITECTURE.md):
-  demo shell, extension registry, and app-level lifecycle hooks.
-- [Root LL-viz wrapper](./ARCHITECTURE.md): root demo scripts, submodule
-  boundary, and CI/deploy ownership.
-- [Tensor-viz monorepo](./tensor-viz/ARCHITECTURE.md): package boundaries,
-  build order, and test responsibilities.
-- [Linear layout extension](./tensor-viz/packages/viewer-demo/src/extensions/linear-layout/ARCHITECTURE.md):
-  parsing, composition, runtime metadata, widgets, and generated Python.
-- [Linear layout presets](./tensor-viz/packages/viewer-demo/src/extensions/linear-layout/presets/ARCHITECTURE.md):
-  adding NVIDIA, AMD, or other preset families.
-- [Linear layout widgets](./tensor-viz/packages/viewer-demo/src/extensions/linear-layout/widgets/ARCHITECTURE.md):
-  sidebar UI ownership and shared widget code.
-- [Viewer core](./tensor-viz/packages/viewer-core/src/ARCHITECTURE.md):
-  reusable layout, view, session, and rendering behavior.
-- [Python package](./tensor-viz/python/src/tensor_viz/ARCHITECTURE.md):
-  Python API, session normalization, and local serving.
-- [Root documentation assets](./docs/ARCHITECTURE.md) and
-  [tensor-viz package docs](./tensor-viz/docs/ARCHITECTURE.md): manual pages,
-  Sphinx docs, generated references, and demo asset synchronization.
-- [Browser e2e tests](./tensor-viz/packages/viewer-demo/e2e/ARCHITECTURE.md):
-  Playwright smoke coverage for startup, widgets, command palette, and canvas
-  paint.
+- [Root LL-viz app](./ARCHITECTURE.md)
+- [Linear layout extension](./src/extensions/linear-layout/ARCHITECTURE.md)
+- [Linear layout presets](./src/extensions/linear-layout/presets/ARCHITECTURE.md)
+- [Linear layout widgets](./src/extensions/linear-layout/widgets/ARCHITECTURE.md)
+- [Root documentation assets](./docs/ARCHITECTURE.md)
+- [Browser e2e tests](./e2e/ARCHITECTURE.md)
 
-## Documentation Standards
-
-For a given design change (e.g. adding/modifying a subsystem), update the relevant
-`ARCHITECTURE.md` file(s) explaining the purpose of the subsystem, folder file
-structure, what each file does, and instructions for workflows using your subsystem.
-Keep user-facing behavior in `MANUAL.md` or `tensor-viz/docs/`, and keep this file
-limited to setup, checks, review expectations, and pointers.
-
-When a change makes existing documentation misleading, update the docs in the
-same change. Prefer one source of truth with links over copying the same
-procedure into several files.
+When a change modifies a subsystem, update the relevant `ARCHITECTURE.md` in the
+same change. Keep user-facing behavior in `MANUAL.md`; keep this file focused on
+setup, checks, and review expectations.

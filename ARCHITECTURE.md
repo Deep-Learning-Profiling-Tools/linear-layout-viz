@@ -1,9 +1,9 @@
-This repository is the LL-viz wrapper around the reusable `tensor-viz` viewer.
+This repository is the LL-viz app built on the reusable `tensor-viz` viewer packages.
 
 The root owns the Triton linear-layout demo inputs and project documentation. `demo_linear_layout.py` defines the sample layouts that users can run locally. `linear_layout_viz.py` converts Triton `LinearLayout` objects into tensor-viz session data, including hardware/logical tensors, colors, markers, and linear-layout metadata.
 
-The `tensor-viz/` submodule owns the viewer implementation. Its TypeScript packages render the UI, its Python package serves local sessions, and its linear-layout extension owns presets, widgets, parsing, and browser behavior. Root code should call into that package instead of duplicating viewer logic here.
+The browser app lives at the root. `src/main.ts` imports `startDemoApp(...)` from `@tensor-viz/viewer-demo` and passes the local linear-layout extension factory. That package boundary is intentional: tensor-viz owns generic viewer rendering and shell behavior, while LL-viz owns GPU layout presets, compose-layout parsing, linear-layout widgets, and fallback tabs.
 
-The root CI checks the submodule because that is where the app builds and tests. When the submodule pointer changes, CI installs Python and Node dependencies inside `tensor-viz/`, installs Chromium for Playwright, runs typecheck, runs tests, and builds packaged frontend assets.
+The TypeScript extension lives in `src/extensions/linear-layout/`. `extension.ts` is the only file the tensor-viz shell sees; model files parse and evaluate layouts, preset files describe instruction families declaratively, and widget files render the sidebar controls.
 
-Keep new root code narrowly focused on LL-viz examples or project-level docs. Runtime behavior, widget behavior, rendering, and preset data should normally be changed inside `tensor-viz/` with architecture notes next to that subsystem.
+The root CI installs npm dependencies, runs typecheck, runs unit tests, runs Playwright against the real app, and builds `dist/` for Pages. Python helpers depend on the published `tensor-viz` Python package rather than a checked-out submodule.

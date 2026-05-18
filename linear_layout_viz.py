@@ -4,15 +4,10 @@ from __future__ import annotations
 
 import colorsys
 import json
-import sys
 from collections.abc import Mapping
-from pathlib import Path
 from typing import Any
 
 import numpy as np
-
-# use the checked-out submodule so the root demo works before tensor-viz is published
-sys.path.insert(0, str(Path(__file__).resolve().parent / "tensor-viz" / "python" / "src"))
 
 from tensor_viz import SessionData, ViewerSession, create_session_data, viz
 

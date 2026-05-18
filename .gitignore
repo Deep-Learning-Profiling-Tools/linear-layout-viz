@@ -6,4 +6,6 @@ __pycache__/
 node_modules/
 dist/
 build/
+test-results/
+playwright-report/
 assets/*mp4
